@@ -1,0 +1,165 @@
+"use strict";
+
+(function (global, factory) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory() : typeof define === 'function' && define.amd ? define(factory) : factory();
+})(void 0, function () {
+  'use strict';
+
+  // Add #radio-hide-show-container to the outer div
+  // Value is passed in, used to match the radio value
+  // Add .hide-show-section to the section you want to hide/show
+
+  /**
+   * @param value
+   * @returns {boolean}
+   */
+  const radioHideShow = value => {
+    const container = document.querySelector('#radio-hide-show-container');
+    if (container === null) {
+      return false;
+    }
+    const section = document.querySelector('#radio-hide-show-section');
+    const radios = Array.from(container.querySelectorAll('input[type="radio"]'));
+    section.classList.add('js-hidden');
+    const showHideSection = radio => {
+      if (+radio.value === +value) {
+        section.classList.remove('js-hidden');
+      } else {
+        section.querySelector('input[type="text"]').value = '';
+        section.classList.add('js-hidden');
+      }
+    };
+    radios.forEach(radio => {
+      if (radio.checked) {
+        showHideSection(radio);
+      }
+      radio.addEventListener('click', () => showHideSection(radio));
+    });
+  };
+  function tabs() {
+    const Tabs = window.GOVUKFrontend.Tabs;
+    var $tab = document.querySelector('[data-module="govuk-tabs"]');
+    if ($tab) {
+      new Tabs($tab).init();
+    }
+  }
+  function isTrumbowygTextbox(element) {
+    return element.classList.contains("trumbowyg-editor");
+  }
+  function errorLinks() {
+    // Get all error links
+    const errorLinks = document.querySelectorAll('.nhsuk-error-summary ul > li > a');
+
+    // Loop through error links and correct hash for inputs where the id does not match
+    // Radio and checkbox
+    if (errorLinks && errorLinks.length) {
+      for (let i = 0; i < errorLinks.length; i += 1) {
+        const fieldName = errorLinks[i].hash.split('#')[1];
+        const elems = document.getElementsByName(fieldName);
+        if (elems.length) {
+          // If we have a trumbowyg textbox then we need to grab the id from that so that the error points
+          // to the textbox and not the textarea which is basically hidden.
+          const previousElementSibling = elems[0].previousElementSibling;
+          if (previousElementSibling && isTrumbowygTextbox(previousElementSibling)) {
+            errorLinks[i].hash = `#${previousElementSibling.id}`;
+          } else {
+            errorLinks[i].hash = `#${elems[0].id}`;
+          }
+          continue;
+        }
+
+        // There's some cases where the name of the input does not match the validation error
+        // that comes from the schema, in this case we need to find the container of the 
+        // inputs where the error comes from and get the first input there. 
+        let inputsContainer = document.getElementById(`error_${fieldName}`);
+        if (!inputsContainer && fieldName.includes(".")) {
+          // Try to find by a different id, sometimes the validation schema has field names like
+          // "key.field" and the error container only takes the "field" part of that full string
+          // for the id.
+          const fieldNameWithoutKey = fieldName.split(".").pop();
+          inputsContainer = document.getElementById(`error_${fieldNameWithoutKey}`);
+        }
+
+        // If we still haven't found the inputs container, try again using only the fieldName.
+        if (!inputsContainer) {
+          inputsContainer = document.getElementById(fieldName);
+        }
+        if (inputsContainer) {
+          const inputs = inputsContainer.getElementsByTagName("input");
+          if (inputs.length) {
+            errorLinks[i].hash = `#${inputs[0].id}`;
+          } else {
+            const textareas = inputsContainer.getElementsByTagName("textarea");
+            if (textareas.length) {
+              const previousElementSibling = textareas[0].previousElementSibling;
+              if (previousElementSibling && isTrumbowygTextbox(previousElementSibling)) {
+                errorLinks[i].hash = `#${previousElementSibling.id}`;
+              } else {
+                errorLinks[i].hash = `#${textareas[0].id}`;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  const updateCharacterCount = selectedElement => {
+    const characterCount = selectedElement.val().length;
+    const numberOfLineBreaks = (selectedElement.val().match(/\n/g) || []).length;
+    const actualCharacterCount = parseInt(characterCount) + parseInt(numberOfLineBreaks);
+    const maxCharacterCount = selectedElement.attr('class').split(' ').find(className => className.includes('nhsuk-textarea-character-count-max-')).replace('nhsuk-textarea-character-count-max-', '');
+    const charactersRemaining = maxCharacterCount - actualCharacterCount;
+    charactersRemaining < 0 ? selectedElement.addClass('nhsuk-textarea--error') : selectedElement.removeClass('nhsuk-textarea--error');
+    selectedElement.parent().find(`.nhsuk-hint-character-count-${charactersRemaining >= 0 ? 'toomany' : 'remaining'}`).hide();
+    selectedElement.parent().find(`.nhsuk-hint-character-count-${charactersRemaining >= 0 ? 'remaining' : 'toomany'}`).show();
+    selectedElement.parent().find(`.nhsuk-character-count-${charactersRemaining >= 0 ? 'remaining' : 'toomany'}`).text(charactersRemaining > 0 ? charactersRemaining : -1 * charactersRemaining);
+  };
+  function characterCount() {
+    const characterCountTextAreas = $('.js-enabled .nhsuk-form-group .nhsuk-textarea-character-count');
+    const characterCounts = characterCountTextAreas.each((i, el) => {
+      updateCharacterCount($(el));
+      $(el).keyup(() => updateCharacterCount($(el)));
+    });
+  }
+  function onSubmitClick() {
+    $('form input[type=submit]#save_continue, form input[type=submit]#save_come_back').on('click', function () {
+      $(this).attr('clicked', 'true');
+    });
+  }
+  function onSubmit() {
+    $('form:has(input#save_continue)').on('submit', function (e) {
+      let submitter;
+      if (e.originalEvent.submitter && e.originalEvent.submitter.name) {
+        submitter = e.originalEvent.submitter.name; // chrome, ff and others
+      }
+      if (!submitter) {
+        submitter = $('input[type=submit][clicked=true]').attr('name'); // safari
+      }
+      if (submitter) {
+        e.preventDefault();
+        $('#save_continue').prop('disabled', true);
+        if ($('#save_come_back').length) {
+          $('#save_come_back').prop('disabled', true);
+        }
+        $('<input>').attr({
+          type: 'hidden',
+          id: 'submitter',
+          name: submitter,
+          value: true
+        }).appendTo('form:has(input#save_continue)');
+        this.submit();
+      }
+    });
+  }
+
+  // ES6 or Vanilla JavaScript
+  document.addEventListener('DOMContentLoaded', () => {
+    // Feedback Page
+    radioHideShow(1);
+    tabs();
+    errorLinks();
+    characterCount();
+    onSubmitClick();
+    onSubmit();
+  });
+});
